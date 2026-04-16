@@ -1,157 +1,211 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vtuber CL</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.0.0/lib/three-vrm.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vtuber CL</title>
 
-    <style>
-        :root { --gradien: linear-gradient(45deg, #ff0000, #800080, #0000ff); }
-        body, html { margin: 0; padding: 0; font-family: sans-serif; background: #000; color: white; display: flex; flex-direction: column; align-items: center; }
+<!-- Three.js + VRM -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.0.0/lib/three-vrm.min.js"></script>
 
-        /* Background Animasi */
-        .animated-bg {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(-45deg, #ff0000, #4b0082, #0000ff, #8a2be2);
-            background-size: 400% 400%; animation: move 15s ease infinite; z-index: -2;
-        }
-        @keyframes move { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+<!-- Tensorflow -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
 
-        .header-box {
-            background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(10px);
-            padding: 10px 30px; margin-top: 20px; border-radius: 12px;
-        }
-        .title-web { font-size: 1.8rem; font-weight: 900; background: var(--gradien); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }
+<style>
+body {
+    margin:0;
+    font-family:sans-serif;
+    overflow:hidden;
+}
 
-        /* Container Layar */
-        .display-container { display: flex; flex-direction: column; align-items: center; gap: 15px; margin-top: 20px; width: 100%; padding-bottom: 100px; }
-        
-        /* Layar Transparan */
-        .layer {
-            border: 2px solid rgba(255,255,255,0.3); border-radius: 15px;
-            background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(2px);
-            overflow: hidden; position: relative;
-        }
-        .camera-layer { width: 500px; height: 600px; }
-        .character-layer { width: 800px; height: 800px; }
+/* Background animasi */
+body::before {
+    content:"";
+    position:fixed;
+    width:100%;
+    height:100%;
+    background: linear-gradient(45deg, red, purple, blue);
+    background-size: 300% 300%;
+    animation: gradientMove 6s infinite alternate;
+    z-index:-1;
+}
 
-        canvas, video { width: 100%; height: 100%; object-fit: cover; }
+@keyframes gradientMove {
+    0% { background-position: left; }
+    100% { background-position: right; }
+}
 
-        /* Navigasi */
-        .controls { position: fixed; bottom: 15px; display: flex; gap: 8px; z-index: 100; flex-wrap: wrap; justify-content: center; }
-        .btn { padding: 10px 18px; border: none; border-radius: 20px; color: white; font-weight: bold; cursor: pointer; font-size: 12px; text-transform: uppercase; }
-        .btn-start { background: #0000ff; }
-        .btn-stop { background: #800080; }
-        .btn-restart { background: #ff0000; }
+/* Title */
+.title {
+    position:absolute;
+    top:10px;
+    left:50%;
+    transform:translateX(-50%);
+    font-size:32px;
+    font-weight:bold;
+    padding:10px 20px;
+    background:rgba(255,255,255,0.5);
+    border-radius:15px;
+    color:#000;
+}
 
-        /* Modal */
-        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; color: black; padding: 20px; border-radius: 15px; z-index: 200; width: 280px; }
-    </style>
+/* Buttons */
+.controls {
+    position:absolute;
+    bottom:20px;
+    left:50%;
+    transform:translateX(-50%);
+}
+
+button {
+    margin:5px;
+    padding:10px 20px;
+    border:none;
+    border-radius:10px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.start { background:blue; color:white; }
+.stop { background:purple; color:white; }
+.restart { background:red; color:white; }
+
+/* Camera */
+#video {
+    position:absolute;
+    left:20px;
+    top:80px;
+    width:300px;
+    height:400px;
+    border-radius:20px;
+}
+
+/* VTuber canvas */
+#vtuberCanvas {
+    position:absolute;
+    right:20px;
+    top:80px;
+    width:500px;
+    height:500px;
+}
+
+/* Menu */
+.menu {
+    position:absolute;
+    top:80px;
+    left:350px;
+    background:rgba(255,255,255,0.7);
+    padding:10px;
+    border-radius:10px;
+}
+
+</style>
 </head>
+
 <body>
 
-<div class="animated-bg"></div>
-<div class="header-box"><h1 class="title-web">VTUBER CL</h1></div>
+<div class="title">Vtuber CL</div>
 
-<div class="display-container">
-    <div class="layer camera-layer">
-        <video id="input_video" style="display:none;" playsinline></video>
-        <canvas id="canvas_camera"></canvas>
-    </div>
-    <div class="layer character-layer" id="vtuber_canvas_container"></div>
-</div>
+<video id="video" autoplay playsinline></video>
+<canvas id="vtuberCanvas"></canvas>
 
 <div class="controls">
-    <button class="btn btn-start" onclick="initTracking()">START</button>
-    <button class="btn btn-stop" onclick="stopTracking()">STOP</button>
-    <button class="btn btn-restart" onclick="location.reload()">RESTART</button>
-    <button class="btn btn-start" onclick="document.getElementById('fileUp').click()">UPLOAD</button>
-    <input type="file" id="fileUp" style="display:none" accept=".vrm" onchange="loadModel(event)">
+    <button class="start" onclick="startApp()">Start</button>
+    <button class="stop" onclick="stopApp()">Stop</button>
+    <button class="restart" onclick="restartApp()">Restart</button>
+</div>
+
+<div class="menu">
+    <input type="file" id="upload" accept=".vrm">
+    <button onclick="useModel()">Use Model</button>
 </div>
 
 <script>
-    let scene, camera, renderer, currentVrm;
-    const videoElement = document.getElementById('input_video');
-    const canvasCamera = document.getElementById('canvas_camera');
-    const ctxCamera = canvasCamera.getContext('2d');
+let video = document.getElementById("video");
+let stream = null;
+let model = null;
+let detector = null;
 
-    // 1. Inisialisasi Renderer 3D (Layar Bawah)
-    function init3D() {
-        scene = new THREE.Scene();
-        camera = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
-        camera.position.set(0, 1.4, 1.5);
+/* THREE JS */
+let scene = new THREE.Scene();
+let camera = new THREE.PerspectiveCamera(30, 1, 0.1, 1000);
+let renderer = new THREE.WebGLRenderer({canvas: document.getElementById("vtuberCanvas"), alpha:true});
 
-        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(800, 800);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        document.getElementById('vtuber_canvas_container').appendChild(renderer.domElement);
+renderer.setSize(500,500);
+camera.position.z = 2;
 
-        const light = new THREE.DirectionalLight(0xffffff);
-        light.position.set(1, 1, 1).normalize();
-        scene.add(light);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-        
-        animate();
+/* LOAD FACE TRACK */
+async function loadAI() {
+    detector = await faceLandmarksDetection.createDetector(
+        faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
+        { runtime: "tfjs" }
+    );
+}
+
+/* START */
+async function startApp() {
+    stream = await navigator.mediaDevices.getUserMedia({video:true});
+    video.srcObject = stream;
+
+    await loadAI();
+    animate();
+}
+
+/* STOP */
+function stopApp() {
+    if(stream){
+        stream.getTracks().forEach(t => t.stop());
     }
+}
 
-    function animate() {
-        requestAnimationFrame(animate);
-        if (currentVrm) currentVrm.update(1/60);
-        renderer.render(scene, camera);
-    }
+/* RESTART */
+function restartApp() {
+    stopApp();
+    startApp();
+}
 
-    // 2. Load Model VRM
-    function loadModel(event) {
-        const file = event.target.files[0];
-        const url = URL.createObjectURL(file);
-        const loader = new THREE.GLTFLoader();
-        
-        loader.register((parser) => new THREE_VRM.VRMLoaderPlugin(parser));
-        
-        loader.load(url, (gltf) => {
-            const vrm = gltf.userData.vrm;
-            if (currentVrm) {
-                scene.remove(currentVrm.scene);
-                THREE_VRM.VRMUtils.deepDispose(currentVrm.scene);
-            }
-            currentVrm = vrm;
-            scene.add(vrm.scene);
-            vrm.scene.rotation.y = Math.PI; // Hadap kamera
-            console.log("Model Terpasang!");
+/* LOAD VRM */
+async function useModel() {
+    let file = document.getElementById("upload").files[0];
+    if(!file) return alert("Upload model VRM");
+
+    let url = URL.createObjectURL(file);
+
+    const loader = new THREE.GLTFLoader();
+    loader.load(url, (gltf)=>{
+        THREE.VRMUtils.removeUnnecessaryVertices(gltf.scene);
+        THREE.VRM.from(gltf).then((vrm)=>{
+            if(model) scene.remove(model.scene);
+            model = vrm;
+            scene.add(model.scene);
         });
+    });
+}
+
+/* ANIMATION LOOP */
+async function animate() {
+    requestAnimationFrame(animate);
+
+    if(detector && video.readyState === 4){
+        const faces = await detector.estimateFaces(video);
+
+        if(faces.length > 0 && model){
+            let face = faces[0];
+
+            // contoh sederhana: gerakan kepala
+            let x = face.keypoints[1].x / video.width - 0.5;
+            let y = face.keypoints[1].y / video.height - 0.5;
+
+            model.scene.rotation.y = x * 2;
+            model.scene.rotation.x = y * 2;
+        }
     }
 
-    // 3. Inisialisasi Tracking & Kamera
-    async function initTracking() {
-        const holistic = new Holistic({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`});
-        
-        holistic.onResults((results) => {
-            // Gambar kamera ke canvas atas
-            ctxCamera.clearRect(0, 0, canvasCamera.width, canvasCamera.height);
-            ctxCamera.drawImage(results.image, 0, 0, canvasCamera.width, canvasCamera.height);
-
-            // Gerakkan Model jika ada
-            if (currentVrm && results.faceLandmarks) {
-                // Contoh: Gerakkan kepala sedikit berdasarkan deteksi
-                const head = currentVrm.humanoid.getRawBoneNode("head");
-                if(head) head.rotation.y = (results.faceLandmarks[1].x - 0.5) * -1;
-            }
-        });
-
-        const cameraStart = new Camera(videoElement, {
-            onFrame: async () => { await holistic.send({image: videoElement}); },
-            width: 500, height: 600
-        });
-        cameraStart.start();
-        alert("Kamera Aktif! Silahkan gerakkan wajah.");
-    }
-
-    window.onload = init3D;
+    renderer.render(scene, camera);
+}
 </script>
+
 </body>
 </html>
