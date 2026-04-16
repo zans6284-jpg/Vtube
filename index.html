@@ -7,7 +7,6 @@
     
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
     
     <style>
         :root {
@@ -17,119 +16,89 @@
         body, html {
             margin: 0; padding: 0;
             font-family: 'Arial', sans-serif;
-            background: black;
-            color: white;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: 100vh;
-            overflow-y: auto; /* Agar bisa scroll karena layar model besar */
+            color: white;
+            background: #000; /* Dasar hitam untuk kontras gradien */
         }
 
-        /* Background Bergerak */
+        /* Background Animasi Bergerak */
         .animated-bg {
             position: fixed; top: 0; left: 0;
             width: 100%; height: 100%;
             background: linear-gradient(-45deg, #ff0000, #4b0082, #0000ff, #8a2be2);
             background-size: 400% 400%;
             animation: gradientBG 15s ease infinite;
-            z-index: -1;
+            z-index: -2;
         }
-
         @keyframes gradientBG {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
 
+        /* Title Box */
         .header-box {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(10px);
-            padding: 15px 40px;
+            padding: 15px 30px;
             margin-top: 20px;
             border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.3);
         }
-
         .title-web {
-            font-size: 2.5rem;
-            font-weight: 900;
+            font-size: 2rem; font-weight: 900;
             background: var(--gradien-utama);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin: 0;
         }
 
-        /* Layout Layar */
+        /* Area Layar - Background Hitam Dihapus, Pakai Transparan */
         .display-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-            margin-top: 20px;
-            padding-bottom: 120px; /* Ruang untuk tombol bawah */
+            display: flex; flex-direction: column;
+            align-items: center; gap: 20px;
+            margin-top: 30px; width: 100%;
         }
 
-        /* Layar Kamera Wajah (500x600) */
-        .camera-layer {
-            width: 500px;
-            height: 600px;
-            border: 4px solid rgba(255,255,255,0.4);
+        .layer {
+            border: 3px solid rgba(255,255,255,0.5);
             border-radius: 20px;
-            background: #000;
+            background: rgba(255, 255, 255, 0.1); /* Transparan sedikit */
+            backdrop-filter: blur(5px);
+            position: relative;
             overflow: hidden;
-            position: relative;
         }
+        .camera-layer { width: 500px; height: 600px; }
+        .character-layer { width: 800px; height: 800px; margin-bottom: 100px;}
 
-        /* Layar Model (800x800) */
-        .character-layer {
-            width: 800px;
-            height: 800px;
-            border: 4px solid rgba(255,255,255,0.4);
-            border-radius: 20px;
-            background: rgba(0,0,0,0.6);
-            position: relative;
-        }
+        video, canvas { width: 100%; height: 100%; object-fit: cover; }
 
-        video, canvas {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        /* Panel Kontrol Bawah */
+        /* Controls Bawah */
         .controls {
-            position: fixed;
-            bottom: 20px;
-            display: flex;
-            gap: 15px;
-            z-index: 10;
+            position: fixed; bottom: 20px;
+            display: flex; gap: 10px; z-index: 100;
         }
-
         .btn {
-            padding: 12px 25px;
-            border: none;
-            border-radius: 25px;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.3s;
-            text-transform: uppercase;
+            padding: 12px 20px; border: none; border-radius: 20px;
+            color: white; font-weight: bold; cursor: pointer; text-transform: uppercase;
         }
+        .btn-blue { background: #0000ff; }
+        .btn-purple { background: #800080; }
+        .btn-red { background: #ff0000; }
 
-        .btn-start { background: #0000ff; }
-        .btn-stop { background: #800080; }
-        .btn-restart { background: #ff0000; }
-        .btn:hover { transform: translateY(-5px); box-shadow: 0 5px 15px rgba(255,255,255,0.2); }
-
-        /* Menu Samping */
-        .side-menu {
-            position: fixed;
-            right: 20px;
-            top: 100px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+        /* Modal Menu */
+        .modal {
+            display: none; position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: white; color: black; padding: 20px;
+            border-radius: 15px; z-index: 200; width: 320px;
+        }
+        .model-item {
+            display: flex; justify-content: space-between;
+            padding: 10px; border-bottom: 1px solid #ddd;
         }
     </style>
 </head>
@@ -142,86 +111,111 @@
 </div>
 
 <div class="display-container">
-    <div class="camera-layer">
-        <video id="input_video" style="display:none" playsinline></video>
-        <canvas id="output_canvas_camera"></canvas>
+    <div class="layer camera-layer">
+        <video id="input_video" style="display:none;" playsinline></video>
+        <canvas id="canvas_camera"></canvas>
     </div>
 
-    <div class="character-layer" id="vtuber_renderer">
-        </div>
+    <div class="layer character-layer" id="model_screen">
+        <div id="status_model" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:rgba(255,255,255,0.5);">Model Belum Terpasang</div>
+    </div>
 </div>
 
 <div class="controls">
-    <button class="btn btn-start" onclick="startApp()">START</button>
-    <button class="btn btn-stop" onclick="stopApp()">STOP</button>
-    <button class="btn btn-restart" onclick="location.reload()">RESTART</button>
+    <button class="btn btn-blue" onclick="startTracking()">START</button>
+    <button class="btn btn-purple" onclick="stopTracking()">STOP</button>
+    <button class="btn btn-red" onclick="location.reload()">RESTART</button>
+    <button class="btn btn-blue" style="font-size: 10px;" onclick="openModal('modalUpload')">UPLOAD</button>
+    <button class="btn btn-purple" style="font-size: 10px;" onclick="openModal('modalPakai')">PAKAI</button>
 </div>
 
-<div class="side-menu">
-    <button class="btn btn-start" style="font-size: 10px;" onclick="alert('Pilih file model (.vrm)')">UPLOAD MODEL</button>
-    <button class="btn btn-stop" style="font-size: 10px;">PAKAI MODEL</button>
+<div id="modalUpload" class="modal">
+    <h3>Upload Model</h3>
+    <input type="file" id="fileInput" accept=".vrm,.glb">
+    <button onclick="saveModel()">Simpan</button>
+    <button onclick="closeModal('modalUpload')">Batal</button>
+</div>
+
+<div id="modalPakai" class="modal">
+    <h3>Pilih Model</h3>
+    <div id="listModels"></div>
+    <button id="confirmBtn" style="display:none; background:blue; color:white; width:100%; margin-top:10px;" onclick="confirmModel()">CONFIRM</button>
+    <button onclick="closeModal('modalPakai')" style="width:100%; margin-top:5px;">Tutup</button>
 </div>
 
 <script>
-    let cameraInstance = null;
-    const videoElement = document.getElementById('input_video');
-    const canvasElement = document.getElementById('output_canvas_camera');
-    const canvasCtx = canvasElement.getContext('2d');
+    let savedModels = [];
+    let selectedIndex = null;
+    let cameraActive = null;
 
-    async function startApp() {
-        try {
-            // Minta izin kamera secara eksplisit
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            videoElement.srcObject = stream;
+    // --- FUNGSI MODAL & UPLOAD ---
+    function openModal(id) { document.getElementById(id).style.display = 'block'; renderList(); }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-            const holistic = new Holistic({
-                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
-            });
-
-            holistic.setOptions({
-                modelComplexity: 1,
-                smoothLandmarks: true,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
-
-            holistic.onResults((results) => {
-                canvasCtx.save();
-                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-                
-                // Gambar video asli ke canvas
-                canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-                
-                // Efek visual deteksi (optional)
-                if (results.faceLandmarks) {
-                    // Di sini logika untuk menggerakkan model 3D nantinya
-                }
-                canvasCtx.restore();
-            });
-
-            cameraInstance = new Camera(videoElement, {
-                onFrame: async () => {
-                    await holistic.send({image: videoElement});
-                },
-                width: 500,
-                height: 600
-            });
-            
-            cameraInstance.start();
-            console.log("Kamera Berhasil Dijalankan");
-        } catch (err) {
-            console.error("Gagal Akses Kamera: ", err);
-            alert("Kamera tidak ditemukan atau izin ditolak!");
+    function saveModel() {
+        const file = document.getElementById('fileInput').files[0];
+        if (file) {
+            savedModels.push({ name: file.name, size: (file.size/1024/1024).toFixed(2) + "MB" });
+            alert("Model tersimpan!");
+            closeModal('modalUpload');
         }
     }
 
-    function stopApp() {
-        if (cameraInstance) {
-            cameraInstance.stop();
-            const tracks = videoElement.srcObject.getTracks();
-            tracks.forEach(track => track.stop());
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            alert("Kamera Dimatikan");
+    function renderList() {
+        const container = document.getElementById('listModels');
+        container.innerHTML = "";
+        savedModels.forEach((m, i) => {
+            container.innerHTML += `
+                <div class="model-item" onmousedown="handleLongPress(${i})" ontouchstart="handleLongPress(${i})">
+                    <span>${m.name} (${m.size})</span>
+                    <input type="checkbox" onclick="selectModel(${i})">
+                </div>`;
+        });
+    }
+
+    function selectModel(i) {
+        selectedIndex = i;
+        document.getElementById('confirmBtn').style.display = 'block';
+    }
+
+    function confirmModel() {
+        document.getElementById('status_model').innerText = "Model: " + savedModels[selectedIndex].name;
+        closeModal('modalPakai');
+        alert("Model Berhasil Dipasang!");
+    }
+
+    // --- FUNGSI KAMERA ---
+    async function startTracking() {
+        const video = document.getElementById('input_video');
+        const canvas = document.getElementById('canvas_camera');
+        const ctx = canvas.getContext('2d');
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            video.play();
+
+            const holistic = new Holistic({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`});
+            
+            holistic.onResults((res) => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(res.image, 0, 0, canvas.width, canvas.height);
+            });
+
+            cameraActive = new Camera(video, {
+                onFrame: async () => { await holistic.send({image: video}); },
+                width: 500, height: 600
+            });
+            cameraActive.start();
+        } catch (e) {
+            alert("Gagal akses kamera! Pastikan izin diberikan.");
+        }
+    }
+
+    function stopTracking() {
+        if (video.srcObject) {
+            video.srcObject.getTracks().forEach(t => t.stop());
+            alert("Kamera Berhenti");
         }
     }
 </script>
