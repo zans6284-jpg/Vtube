@@ -7,27 +7,33 @@
     
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.133.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/kalidokit@1.1.5/dist/kalidokit.it.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+    
     <style>
         :root {
-            --bg-gradient: linear-gradient(-45deg, #ff0055, #7000ff, #00d4ff);
+            --gradien-utama: linear-gradient(45deg, #ff0000, #800080, #0000ff);
         }
 
-        body {
+        body, html {
             margin: 0;
             padding: 0;
             overflow: hidden;
             font-family: 'Arial', sans-serif;
-            background: var(--bg-gradient);
+            height: 100vh;
+            background: black;
+        }
+
+        /* Background Animasi Bergerak */
+        .animated-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(-45deg, #ff0000, #4b0082, #0000ff, #8a2be2);
             background-size: 400% 400%;
             animation: gradientBG 15s ease infinite;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
+            z-index: -1;
         }
 
         @keyframes gradientBG {
@@ -37,179 +43,280 @@
         }
 
         /* Title Style */
-        .header-container {
+        .header-box {
             background: rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(10px);
-            padding: 20px 50px;
+            padding: 20px;
+            margin: 20px auto;
+            width: fit-content;
             border-radius: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            text-align: center;
         }
 
-        h1 {
-            margin: 0;
+        .title-web {
             font-size: 3rem;
             font-weight: 900;
             text-transform: uppercase;
-            /* Style Tebal Gemuk Transparan Gabungan Warna */
-            background: linear-gradient(to right, #ff0055, #7000ff, #00d4ff);
+            background: var(--gradien-utama);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             opacity: 0.8;
-            filter: drop-shadow(2px 2px 5px rgba(0,0,0,0.2));
+            margin: 0;
         }
 
-        /* Kontainer Utama */
-        .main-stage {
+        /* Container Utama */
+        .main-container {
             display: flex;
-            gap: 20px;
-            align-items: flex-end;
+            justify-content: space-around;
+            align-items: center;
+            padding: 20px;
+            flex-wrap: wrap;
         }
 
-        /* Layar Kamera Mengambang */
-        .camera-box {
-            width: 200px;
-            height: 300px;
-            background: #000;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 3px solid rgba(255,255,255,0.5);
+        /* Layar Kamera & Karakter */
+        .camera-layer, .character-layer {
+            border: 5px solid rgba(255,255,255,0.3);
+            border-radius: 20px;
+            background: rgba(0,0,0,0.5);
             position: relative;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
-        #input_video {
+        .camera-layer { width: 400px; height: 500px; }
+        .character-layer { width: 500px; height: 500px; }
+
+        video, canvas {
             width: 100%;
             height: 100%;
+            border-radius: 15px;
             object-fit: cover;
-            transform: scaleX(-1);
         }
 
-        /* Layar Karakter */
-        .avatar-box {
-            width: 500px;
-            height: 500px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            backdrop-filter: blur(5px);
-            border: 2px solid rgba(255,255,255,0.3);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-        }
-
-        /* Controls */
+        /* Panel Kontrol */
         .controls {
-            margin-top: 30px;
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
             display: flex;
             gap: 15px;
         }
 
-        button {
-            padding: 12px 30px;
+        .btn {
+            padding: 15px 30px;
             border: none;
             border-radius: 50px;
             color: white;
             font-weight: bold;
             cursor: pointer;
-            transition: transform 0.2s, opacity 0.3s;
+            transition: 0.3s;
             text-transform: uppercase;
-            letter-spacing: 1px;
         }
 
-        button:active { transform: scale(0.95); }
+        .btn-start { background: #0000ff; }
+        .btn-stop { background: #800080; }
+        .btn-restart { background: #ff0000; }
+        .btn:hover { transform: scale(1.1); filter: brightness(1.2); }
 
-        .btn-start { background-color: #007bff; box-shadow: 0 4px 15px rgba(0,123,255,0.4); }
-        .btn-stop { background-color: #7000ff; box-shadow: 0 4px 15px rgba(112,0,255,0.4); }
-        .btn-restart { background-color: #ff0055; box-shadow: 0 4px 15px rgba(255,0,85,0.4); }
+        /* Menu & Modal */
+        .side-menu {
+            position: fixed;
+            right: 20px;
+            top: 100px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
 
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            width: 400px;
+            z-index: 100;
+        }
+
+        .model-item {
+            border: 2px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 10px;
+            user-select: none;
+        }
+
+        .model-item:active { background: #f0f0f0; }
+
+        .floating-confirm {
+            position: fixed;
+            bottom: 100px;
+            right: 50px;
+            background: #0000ff;
+            color: white;
+            padding: 15px 40px;
+            border-radius: 30px;
+            display: none;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,255,0.4);
+        }
     </style>
 </head>
 <body>
 
-    <div class="header-container">
-        <h1>Vtuber CL</h1>
+<div class="animated-bg"></div>
+
+<div class="header-box">
+    <h1 class="title-web">Vtuber CL</h1>
+</div>
+
+<div class="main-container">
+    <div class="camera-layer">
+        <video id="input_video" style="display:none"></video>
+        <canvas id="output_canvas_camera"></canvas>
     </div>
 
-    <div class="main-stage">
-        <div class="camera-box">
-            <video id="input_video"></video>
+    <div class="character-layer">
+        <div id="vtuber_renderer"></div>
+    </div>
+</div>
+
+<div class="controls">
+    <button class="btn btn-start" onclick="startApp()">START</button>
+    <button class="btn btn-stop" onclick="stopApp()">STOP</button>
+    <button class="btn btn-restart" onclick="location.reload()">RESTART</button>
+</div>
+
+<div class="side-menu">
+    <button class="btn btn-start" onclick="toggleModal('uploadModal')">Upload Model</button>
+    <button class="btn btn-stop" onclick="toggleModal('listModal')">Pakai Model</button>
+</div>
+
+<div id="uploadModal" class="modal">
+    <h3>Upload New Model</h3>
+    <input type="file" id="modelInput" accept=".vrm,.glb,.gltf">
+    <p>Hanya file model (.vrm, .glb) yang diizinkan.</p>
+    <button onclick="uploadModel()">Upload</button>
+    <button onclick="toggleModal('uploadModal')">Tutup</button>
+</div>
+
+<div id="listModal" class="modal">
+    <button onclick="toggleModal('listModal')">← Back</button>
+    <h3>Daftar Model</h3>
+    <div id="modelList">
+        <div class="model-item" onmousedown="startTimer(this)" onmouseup="clearTimer()" ontouchstart="startTimer(this)" ontouchend="clearTimer()">
+            <div>
+                <strong>Sample_Model.vrm</strong><br>
+                <small>Size: 12MB</small>
+            </div>
+            <input type="checkbox" onchange="toggleConfirmBtn(this)">
         </div>
-
-        <div class="avatar-box" id="avatar_container">
-            <p style="color: white; position: absolute;">Loading Model...</p>
-        </div>
     </div>
+</div>
 
-    <div class="controls">
-        <button class="btn-start" onclick="startCamera()">Start</button>
-        <button class="btn-stop" onclick="stopCamera()">Stop</button>
-        <button class="btn-restart" onclick="restartSystem()">Restart</button>
-    </div>
+<button id="confirmBtn" class="floating-confirm" onclick="confirmSelection()">CONFIRM</button>
 
-    <script>
+<script>
+    // Inisialisasi MediaPipe & Three.js
+    let camera = null;
+    let longPressTimer;
+
+    function toggleModal(id) {
+        const modal = document.getElementById(id);
+        modal.style.display = modal.style.display === 'block' ? 'none' : 'block';
+    }
+
+    // Fungsi Upload
+    function uploadModel() {
+        const input = document.getElementById('modelInput');
+        if (input.files.length > 0) {
+            const file = input.files[0];
+            const list = document.getElementById('modelList');
+            const newItem = `
+                <div class="model-item" onmousedown="startTimer(this)" onmouseup="clearTimer()">
+                    <div>
+                        <strong>${file.name}</strong><br>
+                        <small>Size: ${(file.size/1024/1024).toFixed(2)} MB</small>
+                    </div>
+                    <input type="checkbox" onchange="toggleConfirmBtn(this)">
+                </div>
+            `;
+            list.innerHTML += newItem;
+            alert("Model berhasil diunggah!");
+            toggleModal('uploadModal');
+        }
+    }
+
+    // Deteksi Tahan 4 Detik (Rename/Delete)
+    function startTimer(el) {
+        longPressTimer = setTimeout(() => {
+            const action = confirm("Menu Melayang:\nOK untuk Rename, CANCEL untuk Delete");
+            if (action) {
+                const newName = prompt("Masukkan nama baru:");
+                if (newName) el.querySelector('strong').innerText = newName;
+            } else {
+                el.remove();
+            }
+        }, 4000);
+    }
+
+    function clearTimer() {
+        clearTimeout(longPressTimer);
+    }
+
+    // Toggle Tombol Confirm
+    function toggleConfirmBtn(checkbox) {
+        const btn = document.getElementById('confirmBtn');
+        btn.style.display = checkbox.checked ? 'block' : 'none';
+    }
+
+    function confirmSelection() {
+        alert("Model Terpasang!");
+        document.getElementById('confirmBtn').style.display = 'none';
+        toggleModal('listModal');
+    }
+
+    // Logika Kamera & Deteksi (Placeholder Dasar)
+    function startApp() {
         const videoElement = document.getElementById('input_video');
-        let camera = null;
+        const canvasElement = document.getElementById('output_canvas_camera');
+        const canvasCtx = canvasElement.getContext('2d');
 
-        // Inisialisasi Holistic untuk deteksi wajah & tubuh
-        const holistic = new Holistic({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
+        const holistic = new Holistic({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`;
+        }});
+
+        holistic.onResults((results) => {
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            // Logika penggambaran skeleton/landmarks bisa ditambahkan di sini
+            canvasCtx.restore();
         });
 
-        holistic.setOptions({
-            modelComplexity: 1,
-            smoothLandmarks: true,
-            minDetectionConfidence: 0.7,
-            minTrackingConfidence: 0.7
+        camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await holistic.send({image: videoElement});
+            },
+            width: 400,
+            height: 500
         });
+        camera.start();
+    }
 
-        holistic.onResults(onResults);
+    function stopApp() {
+        if (camera) camera.stop();
+        const canvasElement = document.getElementById('output_canvas_camera');
+        const canvasCtx = canvasElement.getContext('2d');
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    }
+</script>
 
-        function onResults(results) {
-            // Di sini logika untuk menggerakkan model 3D menggunakan data 'results'
-            // Menggunakan Kalidokit untuk smooth tracking
-            animateLive2D(results);
-        }
-
-        function startCamera() {
-            camera = new Camera(videoElement, {
-                onFrame: async () => {
-                    await holistic.send({image: videoElement});
-                },
-                width: 640,
-                height: 480
-            });
-            camera.start();
-            console.log("Kamera Berjalan...");
-        }
-
-        function stopCamera() {
-            if (camera) {
-                camera.stop();
-                const stream = videoElement.srcObject;
-                const tracks = stream.getTracks();
-                tracks.forEach(track => track.stop());
-                videoElement.srcObject = null;
-                console.log("Kamera Berhenti.");
-            }
-        }
-
-        function restartSystem() {
-            location.reload();
-        }
-
-        function animateLive2D(results) {
-            // Logika integrasi rigging model (VRM/Live2D) 
-            // Untuk demo ini, kita memastikan data masuk tanpa lag
-            if(results.faceLandmarks) {
-                // Tracking manik mata dan wajah aktif
-            }
-        }
-
-        // Catatan: Untuk menampilkan model 3D (VRM), 
-        // Anda perlu memuat file .vrm menggunakan GLTFLoader
-    </script>
 </body>
-      </html>
-      
+</html>
